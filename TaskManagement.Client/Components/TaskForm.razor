@@ -1,0 +1,59 @@
+﻿@using TaskManagement.Client.Models
+@using TaskManagement.Client.Services
+@inject UserService UserService
+
+<EditForm Model="@TaskModel" OnValidSubmit="@HandleValidSubmit">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <div class="mb-3">
+        <label for="title" class="form-label">Title</label>
+        <InputText id="title" @bind-Value="TaskModel.Title" class="form-control" />
+        <ValidationMessage For="@(() => TaskModel.Title)" />
+    </div>
+
+    <div class="mb-3">
+        <label for="description" class="form-label">Description</label>
+        <InputTextArea id="description" @bind-Value="TaskModel.Description" class="form-control" rows="3" />
+        <ValidationMessage For="@(() => TaskModel.Description)" />
+    </div>
+
+    <div class="mb-3">
+        <label for="assignedTo" class="form-label">Assigned To</label>
+        <UserSelector @bind-Value="TaskModel.AssignedToUserId" />
+    </div>
+
+    <div class="mb-3">
+        <label for="status" class="form-label">Status</label>
+        <InputSelect id="status" @bind-Value="TaskModel.Status" class="form-select">
+            <option value="@Models.TaskStatus.Pending">Pending</option>
+            <option value="@Models.TaskStatus.InProgress">In Progress</option>
+            <option value="@Models.TaskStatus.Completed">Completed</option>
+        </InputSelect>
+    </div>
+
+    <div class="mb-3">
+        <label for="dueDate" class="form-label">Due Date</label>
+        <InputDate id="dueDate" @bind-Value="TaskModel.DueDate" class="form-control" />
+        <ValidationMessage For="@(() => TaskModel.DueDate)" />
+    </div>
+
+    <button type="submit" class="btn btn-primary">Submit</button>
+    <button type="button" class="btn btn-secondary" @onclick="OnCancel">Cancel</button>
+</EditForm>
+
+@code {
+    [Parameter]
+    public TaskItem TaskModel { get; set; } = new TaskItem();
+
+    [Parameter]
+    public EventCallback<TaskItem> OnSubmit { get; set; }
+
+    [Parameter]
+    public EventCallback OnCancel { get; set; }
+
+    private async Task HandleValidSubmit()
+    {
+        await OnSubmit.InvokeAsync(TaskModel);
+    }
+}

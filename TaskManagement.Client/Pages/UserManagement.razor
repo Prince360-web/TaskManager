@@ -1,0 +1,141 @@
+﻿@page "/users"
+@using Microsoft.AspNetCore.Authorization
+@using TaskManagement.Client.Models
+@using TaskManagement.Client.Services
+@inject UserService UserService
+@inject NavigationManager NavigationManager
+@attribute [Authorize(Roles = "Admin")]
+
+
+<h3>User Management</h3>
+
+@if (loading)
+{
+    <div class="d-flex justify-content-center">
+        <div class="spinner-border" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else if (users.Any())
+{
+    <table class="table table-bordered table-hover">
+        <thead class="table-light">
+            <tr>
+                <th>ID</th>
+                <th>Full Name</th>
+                <th>Email</th>
+                <th>Role</th>
+                <th class="text-center">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var user in users)
+            {
+                <tr>
+                    <td>@user.Id</td>
+                    <td>@user.FullName</td>
+                    <td>@user.Email</td>
+                    <td>@user.Role</td>
+                    <td class="text-center">
+                        <button class="btn btn-sm btn-info me-1" @onclick="() => ViewUser(user.Id)">View</button>
+                        <button class="btn btn-sm btn-warning me-1" @onclick="() => EditUser(user.Id)">Edit</button>
+                        <button class="btn btn-sm btn-danger" @onclick="() => ConfirmDelete(user)">Delete</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+else
+{
+    <div class="alert alert-info">No users found.</div>
+}
+
+<!-- Delete Confirmation Modal -->
+@if (userToDelete != null)
+{
+    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5);" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Confirm Delete</h5>
+                    <button type="button" class="btn-close" @onclick="CancelDelete"></button>
+                </div>
+                <div class="modal-body">
+                    Are you sure you want to delete <strong>@userToDelete.FullName</strong>?
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="CancelDelete">Cancel</button>
+                    <button class="btn btn-danger" @onclick="DeleteUserConfirmed">Delete</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<User> users = new();
+    private bool loading = true;
+    private User userToDelete;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadUsersAsync();
+    }
+
+    private async Task LoadUsersAsync()
+    {
+        loading = true;
+        try
+        {
+            users = await UserService.GetAllUsersAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading users: {ex.Message}");
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private void ViewUser(int userId)
+    {
+        NavigationManager.NavigateTo($"/users/{userId}");
+    }
+
+    private void EditUser(int userId)
+    {
+        NavigationManager.NavigateTo($"/users/{userId}");
+    }
+
+    private void ConfirmDelete(User user)
+    {
+        userToDelete = user;
+    }
+
+    private void CancelDelete()
+    {
+        userToDelete = null;
+    }
+
+    private async Task DeleteUserConfirmed()
+    {
+        if (userToDelete != null)
+        {
+            try
+            {
+                await UserService.DeleteUserAsync(userToDelete.Id);
+                users.Remove(userToDelete);
+                userToDelete = null;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Failed to delete user: {ex.Message}");
+            }
+        }
+    }
+
+}

@@ -1,0 +1,28 @@
+﻿@using TaskManagement.Client.Models
+@using TaskManagement.Client.Services
+@inject UserService UserService
+
+<select class="form-select" @bind="SelectedUserId" @bind:after="OnUserSelected">
+    <option value="0">All Users</option>
+    @foreach (var user in Users)
+    {
+        <option value="@user.Id">@user.FullName</option>
+    }
+</select>
+
+@code {
+    [Parameter] public int SelectedUserId { get; set; }
+    [Parameter] public EventCallback<int> OnUserSelectedCallback { get; set; }
+
+    private List<User> Users { get; set; } = new List<User>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        Users = await UserService.GetAllUsersAsync();
+    }
+
+    private async Task OnUserSelected()
+    {
+        await OnUserSelectedCallback.InvokeAsync(SelectedUserId);
+    }
+}

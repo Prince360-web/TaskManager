@@ -1,0 +1,208 @@
+﻿@page "/tasks"
+@using TaskManagement.Client.Models
+@using Microsoft.AspNetCore.Authorization
+@using TaskManagement.Client.Services
+@inject TaskService TaskService
+@inject NavigationManager NavigationManager
+@attribute [Authorize]
+
+<h3>Task List</h3>
+
+<div class="row mb-4">
+    <div class="col-md-12 d-flex justify-content-between align-items-center">
+        <div>
+            <a href="/tasks/create" class="btn btn-primary">Create New Task</a>
+        </div>
+        <div class="d-flex">
+            <div class="me-3">
+                <label class="me-2">Status:</label>
+                <select class="form-select form-select-sm" @onchange="OnStatusFilterChanged">
+                    <option value="">All</option>
+                    <option value="@Models.TaskStatus.Pending">Pending</option>
+                    <option value="@Models.TaskStatus.InProgress">In Progress</option>
+                    <option value="@Models.TaskStatus.Completed">Completed</option>
+                </select>
+            </div>
+            <div>
+                <label class="me-2">Due Date:</label>
+                <select class="form-select form-select-sm" @onchange="OnDueDateFilterChanged">
+                    <option value="">All</option>
+                    <option value="today">Today</option>
+                    <option value="week">This Week</option>
+                    <option value="month">This Month</option>
+                </select>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (loading)
+{
+    <div class="d-flex justify-content-center my-5">
+        <div class="spinner-border" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else if (tasks.Count == 0)
+{
+    <div class="alert alert-info">
+        No tasks found. Create your first task to get started!
+    </div>
+}
+else
+{
+    <div class="row">
+        @foreach (var task in filteredTasks)
+        {
+            <div class="col-md-6 col-lg-4 mb-3">
+                <TaskCard Task="task"
+                          OnView="ViewTask"
+                          OnEdit="EditTask"
+                          OnDelete="DeleteTask" />
+            </div>
+        }
+    </div>
+
+    @if (showDeleteConfirmation)
+    {
+        <div class="modal fade show" style="display: block;" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Confirm Delete</h5>
+                        <button type="button" class="btn-close" @onclick="CancelDelete"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Are you sure you want to delete the task "@taskToDelete?.Title"?</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @onclick="CancelDelete">Cancel</button>
+                        <button type="button" class="btn btn-danger" @onclick="ConfirmDelete">Delete</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-backdrop fade show"></div>
+    }
+}
+
+@code {
+    private bool loading = true;
+    private List<TaskItem> tasks = new();
+    private List<TaskItem> filteredTasks = new();
+    private Models.TaskStatus? statusFilter = null;
+    private string dueDateFilter = "";
+
+    private bool showDeleteConfirmation = false;
+    private TaskItem taskToDelete;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadTasksAsync();
+    }
+
+    private async Task LoadTasksAsync()
+    {
+        try
+        {
+            loading = true;
+            tasks = await TaskService.GetTasksAsync();
+            ApplyFilters();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading tasks: {ex.Message}");
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private void ApplyFilters()
+    {
+        filteredTasks = tasks;
+
+        // Apply status filter
+        if (statusFilter.HasValue)
+        {
+            filteredTasks = filteredTasks.Where(t => t.Status == statusFilter).ToList();
+        }
+
+        // Apply due date filter
+        if (!string.IsNullOrEmpty(dueDateFilter))
+        {
+            var today = DateTime.Today;
+            var startOfWeek = today.AddDays(-(int)today.DayOfWeek);
+            var endOfWeek = startOfWeek.AddDays(6);
+            var startOfMonth = new DateTime(today.Year, today.Month, 1);
+            var endOfMonth = startOfMonth.AddMonths(1).AddDays(-1);
+
+            filteredTasks = dueDateFilter switch
+            {
+                "today" => filteredTasks.Where(t => t.DueDate.Date == today).ToList(),
+                "week" => filteredTasks.Where(t => t.DueDate.Date >= startOfWeek && t.DueDate.Date <= endOfWeek).ToList(),
+                "month" => filteredTasks.Where(t => t.DueDate.Date >= startOfMonth && t.DueDate.Date <= endOfMonth).ToList(),
+                _ => filteredTasks
+            };
+        }
+    }
+
+    private void OnStatusFilterChanged(ChangeEventArgs e)
+    {
+        var value = e.Value?.ToString();
+        statusFilter = string.IsNullOrEmpty(value) ? null : Enum.Parse<Models.TaskStatus>(value);
+        ApplyFilters();
+    }
+
+    private void OnDueDateFilterChanged(ChangeEventArgs e)
+    {
+        dueDateFilter = e.Value?.ToString() ?? "";
+        ApplyFilters();
+    }
+
+    private void ViewTask(TaskItem task)
+    {
+        NavigationManager.NavigateTo($"/tasks/{task.Id}");
+    }
+
+    private void EditTask(TaskItem task)
+    {
+        NavigationManager.NavigateTo($"/tasks/edit/{task.Id}");
+    }
+
+    private void DeleteTask(TaskItem task)
+    {
+        taskToDelete = task;
+        showDeleteConfirmation = true;
+    }
+
+    private void CancelDelete()
+    {
+        showDeleteConfirmation = false;
+        taskToDelete = null;
+    }
+
+    private async Task ConfirmDelete()
+    {
+        if (taskToDelete != null)
+        {
+            try
+            {
+                await TaskService.DeleteTaskAsync(taskToDelete.Id);
+                tasks.Remove(taskToDelete);
+                ApplyFilters();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error deleting task: {ex.Message}");
+            }
+            finally
+            {
+                showDeleteConfirmation = false;
+                taskToDelete = null;
+            }
+        }
+    }
+}

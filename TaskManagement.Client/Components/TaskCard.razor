@@ -1,0 +1,53 @@
+﻿@using TaskManagement.Client.Models
+
+<div class="card mb-3">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">@Task.Title</h5>
+        <span class="badge @GetStatusBadgeClass()">@Task.Status</span>
+    </div>
+    <div class="card-body">
+        <p class="card-text">@Task.Description</p>
+        <div class="d-flex justify-content-between">
+            <div>
+                <small class="text-muted">
+                    <strong>Assigned to:</strong> @(string.IsNullOrEmpty(Task.AssignedToUserName) ? "Unassigned" : Task.AssignedToUserName)
+                </small>
+            </div>
+            <div>
+                <small class="text-muted">
+                    <strong>Due:</strong> @Task.DueDate.ToShortDateString()
+                </small>
+            </div>
+        </div>
+    </div>
+    <div class="card-footer d-flex justify-content-end">
+        <button class="btn btn-sm btn-primary me-2" @onclick="() => OnView.InvokeAsync(Task)">View</button>
+        <button class="btn btn-sm btn-warning me-2" @onclick="() => OnEdit.InvokeAsync(Task)">Edit</button>
+        <button class="btn btn-sm btn-danger" @onclick="() => OnDelete.InvokeAsync(Task)">Delete</button>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public TaskItem Task { get; set; }
+
+    [Parameter]
+    public EventCallback<TaskItem> OnView { get; set; }
+
+    [Parameter]
+    public EventCallback<TaskItem> OnEdit { get; set; }
+
+    [Parameter]
+    public EventCallback<TaskItem> OnDelete { get; set; }
+
+    private string GetStatusBadgeClass()
+    {
+        return Task.Status switch
+        {
+            Models.TaskStatus.Pending => "bg-secondary",
+            Models.TaskStatus.InProgress => "bg-primary",
+            Models.TaskStatus.Completed => "bg-success",
+            _ => "bg-secondary"
+        };
+    }
+}

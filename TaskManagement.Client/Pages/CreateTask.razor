@@ -1,0 +1,138 @@
+﻿@page "/tasks/create"
+@using Blazored.Toast.Services
+@using TaskManagement.Client.Models
+@using TaskManagement.Client.Services
+@inject TaskService TaskService
+@inject NavigationManager NavigationManager
+@inject IToastService ToastService
+@inject UserService UserService
+
+
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="mb-0">Create New Task</h3>
+            </div>
+            <div class="card-body">
+                <EditForm Model="@taskModel" OnValidSubmit="HandleCreateTask">
+                    <DataAnnotationsValidator />
+                    @if (!string.IsNullOrEmpty(errorMessage))
+                    {
+                        <div class="alert alert-danger">@errorMessage</div>
+                    }
+
+                    <div class="mb-3">
+                        <label for="title" class="form-label">Title</label>
+                        <InputText id="title" class="form-control" @bind-Value="taskModel.Title" />
+                        <ValidationMessage For="@(() => taskModel.Title)" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Description</label>
+                        <InputTextArea id="description" class="form-control" rows="4" @bind-Value="taskModel.Description" />
+                        <ValidationMessage For="@(() => taskModel.Description)" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="assignedUser" class="form-label">Assigned To</label>
+                        <InputSelect id="assignedUser" class="form-select" @bind-Value="taskModel.AssignedToUserId">
+                            <option value="">-- Select User --</option>
+                            @foreach (var user in availableUsers)
+                            {
+                                <option value="@user.Id">@user.FullName</option>
+                            }
+                        </InputSelect>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="status" class="form-label">Status</label>
+                        <InputSelect id="status" class="form-select" @bind-Value="taskModel.Status">
+                            @foreach (Models.TaskStatus status in Enum.GetValues(typeof(Models.TaskStatus)))
+                            {
+                                <option value="@status">@status</option>
+                            }
+                        </InputSelect>
+                        <ValidationMessage For="@(() => taskModel.Status)" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="dueDate" class="form-label">Due Date</label>
+                        <InputDate id="dueDate" class="form-control" @bind-Value="taskModel.DueDate" DisplayName="Due Date" />
+                        <small class="form-text text-muted">Default is 7 days from today</small>
+                        <ValidationMessage For="@(() => taskModel.DueDate)" />
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center">
+                        <button type="submit" class="btn btn-primary" disabled="@isLoading">
+                            @if (isLoading)
+                            {
+                                <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                                <span>Creating...</span>
+                            }
+                            else
+                            {
+                                <span>Create Task</span>
+                            }
+                        </button>
+                        <a href="/tasks" class="btn btn-outline-secondary">Cancel</a>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+@code {
+    private TaskCreateRequest taskModel = new TaskCreateRequest();
+    private string errorMessage;
+    private bool isLoading;
+    private List<User> availableUsers { get; set; } = new List<User>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        taskModel.DueDate = DateTime.Now.AddDays(7);
+        taskModel.Status = Models.TaskStatus.Pending;
+
+
+        // Load users for assignment dropdown
+        try
+        {
+            availableUsers = await UserService.GetUsersAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load users: {ex.Message}";
+        }
+    }
+
+    private async Task HandleCreateTask()
+    {
+        errorMessage = string.Empty;
+        isLoading = true;
+
+        try
+        {
+            var result = await TaskService.CreateTaskAsync(taskModel);
+            if (result != null)
+            {
+                ToastService.ShowSuccess("Task created successfully!");
+                NavigationManager.NavigateTo("/tasks");
+                Console.WriteLine("It was a success");
+            }
+            else
+            {
+                errorMessage = "Failed to create task";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"An error occurred: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}

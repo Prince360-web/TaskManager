@@ -1,0 +1,91 @@
+﻿@using TaskManagement.Client.Services
+@inject ILocalStorageService LocalStorage
+@inject NavigationManager NavigationManager
+@inject AuthService AuthService
+
+<div class="top-row ps-3 navbar navbar-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="">Task Management</a>
+        <button title="Navigation menu" class="navbar-toggler" @onclick="ToggleNavMenu">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+    </div>
+</div>
+
+<div class="@NavMenuCssClass" @onclick="ToggleNavMenu">
+    <nav class="flex-column">
+        @if (isAuthenticated)
+        {
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="dashboard" Match="NavLinkMatch.All">
+                    <span class="oi oi-dashboard" aria-hidden="true"></span> Dashboard
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="tasks">
+                    <span class="oi oi-list-rich" aria-hidden="true"></span> Tasks
+                </NavLink>
+            </div>
+            @if (isAdmin)
+            {
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="users">
+                        <span class="oi oi-people" aria-hidden="true"></span> User Management
+                    </NavLink>
+                </div>
+            }
+            <div class="nav-item px-3">
+                <a class="nav-link" href="javascript:void(0)" @onclick="Logout">
+                    <span class="oi oi-account-logout" aria-hidden="true"></span> Logout
+                </a>
+            </div>
+        }
+        else
+        {
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="login">
+                    <span class="oi oi-account-login" aria-hidden="true"></span> Login
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="register">
+                    <span class="oi oi-person" aria-hidden="true"></span> Register
+                </NavLink>
+            </div>
+        }
+    </nav>
+</div>
+
+@code {
+    private bool collapseNavMenu = true;
+    private bool isAuthenticated = false;
+    private bool isAdmin = false;
+    private string userRole = "";
+
+    private string NavMenuCssClass => collapseNavMenu ? "collapse" : null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var token = await LocalStorage.GetItemAsync<string>("authToken");
+        isAuthenticated = !string.IsNullOrEmpty(token);
+
+        if (isAuthenticated)
+        {
+            // In a real app, you'd parse the JWT to get the role
+            // For this example, we'll assume admin status from local storage
+            userRole = await LocalStorage.GetItemAsync<string>("userRole");
+            isAdmin = userRole == "Admin";
+        }
+    }
+
+    private void ToggleNavMenu()
+    {
+        collapseNavMenu = !collapseNavMenu;
+    }
+
+    private async Task Logout()
+    {
+        await AuthService.Logout();
+        NavigationManager.NavigateTo("/login");
+    }
+}

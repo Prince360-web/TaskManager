@@ -1,0 +1,157 @@
+﻿@page "/register"
+@using System.ComponentModel.DataAnnotations
+@using TaskManagement.Client.Models
+@using TaskManagement.Client.Services
+@inject AuthService AuthService
+@inject NavigationManager NavigationManager
+
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="mb-0">Create New Account</h3>
+            </div>
+            <div class="card-body">
+                @if (isLoading)
+                {
+                    <div class="d-flex justify-content-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <EditForm Model="@registrationModel" OnValidSubmit="HandleRegistration">
+                        <DataAnnotationsValidator />
+                        <ValidationSummary class="text-danger mb-3" />
+
+                        @if (!string.IsNullOrEmpty(errorMessage))
+                        {
+                            <div class="alert alert-danger">
+                                @errorMessage
+                            </div>
+                        }
+
+                        <div class="mb-3">
+                            <label for="fullName" class="form-label">Full Name</label>
+                            <InputText id="fullName" class="form-control" @bind-Value="registrationModel.FullName" />
+                            <ValidationMessage For="@(() => registrationModel.FullName)" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="email" class="form-label">Email</label>
+                            <InputText id="email" class="form-control" @bind-Value="registrationModel.Email" type="email" />
+                            <ValidationMessage For="@(() => registrationModel.Email)" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="password" class="form-label">Password</label>
+                            <InputText id="password" class="form-control" @bind-Value="registrationModel.Password" type="password" />
+                            <ValidationMessage For="@(() => registrationModel.Password)" />
+                            <small class="form-text text-muted">
+                                Password must be at least 8 characters and include uppercase, lowercase, numbers, and special characters.
+                            </small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="confirmPassword" class="form-label">Confirm Password</label>
+                            <InputText id="confirmPassword" class="form-control" @bind-Value="registrationModel.ConfirmPassword" type="password" />
+                            <ValidationMessage For="@(() => registrationModel.ConfirmPassword)" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="role" class="form-label">Role</label>
+                            <InputSelect id="role" class="form-select" @bind-Value="registrationModel.Role">
+                                <option value="">-- Select Role --</option>
+                                <option value="Admin">Admin</option>
+                                <option value="User">User</option>
+                            </InputSelect>
+                            <ValidationMessage For="@(() => registrationModel.Role)" />
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary">Register</button>
+                        </div>
+
+                        <div class="text-center mt-3">
+                            <span>
+                                Already have an account? <a href="login">Log in</a>
+                            </span>
+                        </div>
+                    </EditForm>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private RegistrationViewModel registrationModel = new();
+    private bool isLoading = false;
+    private string errorMessage = string.Empty;
+
+    private async Task HandleRegistration()
+    {
+        try
+        {
+            isLoading = true;
+            errorMessage = string.Empty;
+
+        
+            var registerRequest = new RegisterRequest
+                {
+                    FullName = registrationModel.FullName,
+                    Email = registrationModel.Email,
+                    Password = registrationModel.Password,
+					ConfirmPassword = registrationModel.ConfirmPassword,
+                    Role = registrationModel.Role
+                };
+
+
+            var result = await AuthService.Register(registerRequest);
+
+            if (result != null)
+            {
+                NavigationManager.NavigateTo("/dashboard");
+            }
+            else
+            {
+                errorMessage = "Registration failed. Please try again.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"An unexpected error occurred: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    
+    public class RegistrationViewModel
+    {
+        [Required(ErrorMessage = "Full Name is required")]
+        [StringLength(100, ErrorMessage = "Full Name must be between 2 and 100 characters", MinimumLength = 2)]
+        public string FullName { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Email is required")]
+        [EmailAddress(ErrorMessage = "Invalid email format")]
+        public string Email { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Password is required")]
+        [StringLength(100, ErrorMessage = "Password must be at least 8 characters", MinimumLength = 8)]
+        [RegularExpression(@"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^\da-zA-Z]).{8,}$",
+            ErrorMessage = "Password must include uppercase, lowercase, number and special character")]
+        public string Password { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Confirm Password is required")]
+        [Compare(nameof(Password), ErrorMessage = "Passwords do not match")]
+        public string ConfirmPassword { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Role is required")]
+        public string Role { get; set; } = "User";  
+    }
+}

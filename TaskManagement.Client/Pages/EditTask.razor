@@ -1,0 +1,170 @@
+﻿@page "/tasks/edit/{TaskId:int}"
+@using Blazored.Toast.Services
+@using TaskManagement.Client.Models
+@using TaskManagement.Client.Services
+@inject TaskService TaskService
+@inject NavigationManager NavigationManager
+@inject IToastService ToastService
+@inject UserService UserService
+
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="mb-0">Edit Task</h3>
+            </div>
+            <div class="card-body">
+                @if (isLoading)
+                {
+                    <div class="text-center">
+                        <div class="spinner-border text-primary" role="status"></div>
+                        <p>Loading task...</p>
+                    </div>
+                }
+                else if (taskModel != null)
+                {
+                    <EditForm Model="@taskModel" OnValidSubmit="HandleUpdateTask">
+                        <DataAnnotationsValidator />
+                        @if (!string.IsNullOrEmpty(errorMessage))
+                        {
+                            <div class="alert alert-danger">@errorMessage</div>
+                        }
+
+                        <div class="mb-3">
+                            <label for="title" class="form-label">Title</label>
+                            <InputText id="title" class="form-control" @bind-Value="taskModel.Title" />
+                            <ValidationMessage For="@(() => taskModel.Title)" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="description" class="form-label">Description</label>
+                            <InputTextArea id="description" class="form-control" rows="4" @bind-Value="taskModel.Description" />
+                            <ValidationMessage For="@(() => taskModel.Description)" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="assignedUser" class="form-label">Assigned To</label>
+                            <InputSelect id="assignedUser" class="form-select" @bind-Value="taskModel.AssignedToUserId">
+                                <option value="">-- Select User --</option>
+                                @foreach (var user in availableUsers)
+                                {
+                                    <option value="@user.Id">@user.FullName</option>
+                                }
+                            </InputSelect>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="status" class="form-label">Status</label>
+                            <InputSelect id="status" class="form-select" @bind-Value="taskModel.Status">
+                                @foreach (Models.TaskStatus status in Enum.GetValues(typeof(Models.TaskStatus)))
+                                {
+                                    <option value="@status">@status</option>
+                                }
+                            </InputSelect>
+                            <ValidationMessage For="@(() => taskModel.Status)" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="dueDate" class="form-label">Due Date</label>
+                            <InputDate id="dueDate" class="form-control" @bind-Value="taskModel.DueDate" DisplayName="Due Date" />
+                            <ValidationMessage For="@(() => taskModel.DueDate)" />
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center">
+                            <button type="submit" class="btn btn-success" disabled="@isUpdating">
+                                @if (isUpdating)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                                    <span>Updating...</span>
+                                }
+                                else
+                                {
+                                    <span>Update Task</span>
+                                }
+                            </button>
+                            <a href="/tasks" class="btn btn-outline-secondary">Cancel</a>
+                        </div>
+                    </EditForm>
+                }
+                else
+                {
+                    <div class="alert alert-warning">Task not found.</div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public int TaskId { get; set; }
+
+    private TaskUpdateRequest taskModel;
+    private string errorMessage;
+    private bool isLoading = true;
+    private bool isUpdating = false;
+    private List<User> availableUsers = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            availableUsers = await UserService.GetUsersAsync();
+            var existingTask = await TaskService.GetTaskByIdAsync(TaskId);
+
+            if (existingTask != null)
+            {
+                taskModel = new TaskUpdateRequest
+                    {
+                        Id = existingTask.Id,
+                        Title = existingTask.Title,
+                        Description = existingTask.Description,
+                        AssignedToUserId = existingTask.AssignedToUserId,
+                        Status = existingTask.Status,
+                        DueDate = existingTask.DueDate
+                    };
+            }
+            else
+            {
+                errorMessage = "Task not found.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error loading task: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task HandleUpdateTask()
+    {
+        errorMessage = string.Empty;
+        isUpdating = true;
+
+        try
+        {
+            var result = await TaskService.UpdateTaskAsync(taskModel);
+
+            if (result)
+            {
+                ToastService.ShowSuccess("Task updated successfully!");
+                NavigationManager.NavigateTo("/tasks");
+            }
+            else
+            {
+                errorMessage = "Failed to update task.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"An error occurred: {ex.Message}";
+        }
+        finally
+        {
+            isUpdating = false;
+        }
+    }
+}

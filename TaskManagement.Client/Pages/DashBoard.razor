@@ -1,0 +1,181 @@
+﻿@page "/dashboard"
+@page "/"
+@using Microsoft.AspNetCore.Authorization
+@using TaskManagement.Client.Models
+@using TaskManagement.Client.Services
+@inject TaskService TaskService
+@inject AuthService AuthService
+@attribute [Authorize]
+
+
+<h3>Task Dashboard</h3>
+
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card bg-light">
+            <div class="card-body">
+                <h5 class="card-title">Pending Tasks</h5>
+                <h2 class="card-text">@pendingTasksCount</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card bg-light">
+            <div class="card-body">
+                <h5 class="card-title">In Progress Tasks</h5>
+                <h2 class="card-text">@inProgressTasksCount</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card bg-light">
+            <div class="card-body">
+                <h5 class="card-title">Completed Tasks</h5>
+                <h2 class="card-text">@completedTasksCount</h2>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5>Tasks Due Soon</h5>
+            </div>
+            <div class="card-body">
+                @if (loadingTasks)
+                {
+                    <div class="d-flex justify-content-center">
+                        <div class="spinner-border" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                }
+                else if (tasksDueSoon.Count == 0)
+                {
+                    <p>No tasks due in the next 7 days.</p>
+                }
+                else
+                {
+                    <div class="list-group">
+                        @foreach (var task in tasksDueSoon)
+                        {
+                            <a href="/tasks/@task.Id" class="list-group-item list-group-item-action">
+                                <div class="d-flex w-100 justify-content-between">
+                                    <h5 class="mb-1">@task.Title</h5>
+                                    <span class="badge @GetStatusBadgeClass(task.Status)">@task.Status</span>
+                                </div>
+                                <p class="mb-1">Due: @task.DueDate.ToShortDateString()</p>
+                            </a>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5>Recent Completed Tasks</h5>
+            </div>
+            <div class="card-body">
+                @if (loadingTasks)
+                {
+                    <div class="d-flex justify-content-center">
+                        <div class="spinner-border" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                }
+                else if (recentCompletedTasks.Count == 0)
+                {
+                    <p>No tasks completed recently.</p>
+                }
+                else
+                {
+                    <div class="list-group">
+                        @foreach (var task in recentCompletedTasks)
+                        {
+                            <a href="/tasks/@task.Id" class="list-group-item list-group-item-action">
+                                <div class="d-flex w-100 justify-content-between">
+                                    <h5 class="mb-1">@task.Title</h5>
+                                    <small>Completed on @task.CreatedDate.ToShortDateString()</small>
+                                </div>
+                            </a>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="mt-4">
+    <a href="/tasks" class="btn btn-primary">View All Tasks</a>
+    <a href="/tasks/create" class="btn btn-success ms-2">Create New Task</a>
+</div>
+
+@code {
+    private bool loadingTasks = true;
+    private List<TaskItem> allTasks = new();
+    private List<TaskItem> tasksDueSoon = new();
+    private List<TaskItem> recentCompletedTasks = new();
+
+    private int pendingTasksCount = 0;
+    private int inProgressTasksCount = 0;
+    private int completedTasksCount = 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadTasksAsync();
+    }
+
+    private async Task LoadTasksAsync()
+    {
+        try
+        {
+            loadingTasks = true;
+            allTasks = await TaskService.GetTasksAsync();
+
+            // Calculate counts
+            pendingTasksCount = allTasks.Count(t => t.Status == Models.TaskStatus.Pending);
+            inProgressTasksCount = allTasks.Count(t => t.Status == Models.TaskStatus.InProgress);
+            completedTasksCount = allTasks.Count(t => t.Status == Models.TaskStatus.Completed);
+
+            // Get tasks due in the next 7 days (excluding completed)
+            var oneWeekFromNow = DateTime.Now.AddDays(7);
+            tasksDueSoon = allTasks
+                .Where(t => t.Status != Models.TaskStatus.Completed && t.DueDate <= oneWeekFromNow)
+                .OrderBy(t => t.DueDate)
+                .Take(5)
+                .ToList();
+
+            // Get recently completed tasks
+            recentCompletedTasks = allTasks
+                .Where(t => t.Status == Models.TaskStatus.Completed)
+                .OrderByDescending(t => t.CreatedDate)
+                .Take(5)
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading tasks: {ex.Message}");
+        }
+        finally
+        {
+            loadingTasks = false;
+        }
+    }
+
+    private string GetStatusBadgeClass(Models.TaskStatus status)
+    {
+        return status switch
+        {
+            Models.TaskStatus.Pending => "bg-secondary",
+            Models.TaskStatus.InProgress => "bg-primary",
+            Models.TaskStatus.Completed => "bg-success",
+            _ => "bg-secondary"
+        };
+    }
+}
